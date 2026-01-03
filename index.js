@@ -156,11 +156,11 @@ const resolvers = {
 
       return filteredBooks;
     },
-    allAuthors: () => {
-      return authors.map((author) => ({
-        ...author,
-        bookCount: books.filter((b) => b.author === author.name).length,
-      }));
+    allAuthors: () => authors,
+  },
+  Author: {
+    bookCount: (root) => {
+      return books.filter((b) => b.author === root.name).length;
     },
   },
   Mutation: {
