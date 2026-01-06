@@ -5,6 +5,7 @@ const { gql } = require("graphql-tag");
 const mongoose = require("mongoose");
 const Book = require("./models/Book");
 const Author = require("./models/Author");
+const { GraphQLError } = require("graphql/error");
 
 require("dotenv").config();
 
@@ -94,7 +95,17 @@ const resolvers = {
           name: args.author,
         });
 
-        author = await author.save();
+        try {
+          author = await author.save();
+        } catch (error) {
+          throw new GraphQLError("Saving user failed", {
+            extensions: {
+              code: "BAD_USER_INPUT",
+              invalidArgs: args.author,
+              error,
+            },
+          });
+        }
       }
 
       const book = new Book({
@@ -103,17 +114,47 @@ const resolvers = {
         genres: args.genres,
         author: author._id,
       });
-      const savedBook = await book.save();
-      return savedBook.populate("author");
+
+      try {
+        const savedBook = await book.save();
+        return savedBook.populate("author");
+      } catch (error) {
+        throw new GraphQLError("Saving book failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args,
+            error,
+          },
+        });
+      }
     },
     editAuthor: async (root, args) => {
-      const updatedAuthor = await Author.findOneAndUpdate(
-        { name: args.name },
-        { $set: { born: args.setBornTo } },
-        { new: true }
-      );
+      try {
+        const updatedAuthor = await Author.findOneAndUpdate(
+          { name: args.name },
+          { $set: { born: args.setBornTo } },
+          { new: true, runValidators: true }
+        );
 
-      return updatedAuthor;
+        if (!updatedAuthor) {
+          throw new GraphQLError("Author not found", {
+            extensions: {
+              code: "BAD_USER_INPUT",
+              invalidArgs: args.name,
+            },
+          });
+        }
+
+        return updatedAuthor;
+      } catch (error) {
+        throw new GraphQLError("Updating author failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args,
+            error,
+          },
+        });
+      }
     },
   },
 };
